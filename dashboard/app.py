@@ -3,9 +3,9 @@ import pandas as pd
 from pathlib import Path
 import plotly.express as px
 
-# -----------------------------
-# Page config
-# -----------------------------
+# --------------------------------------------------
+# Page configuration
+# --------------------------------------------------
 st.set_page_config(
     page_title="Ethiopia Financial Inclusion Dashboard",
     layout="wide"
@@ -13,15 +13,16 @@ st.set_page_config(
 
 st.title("📊 Ethiopia Financial Inclusion Dashboard")
 
-# -----------------------------
+# --------------------------------------------------
 # Resolve paths safely
-# -----------------------------
+# --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data" / "processed" / "ethiopia_fi_enriched.csv"
+FORECAST_PATH = BASE_DIR / "data" / "processed" / "forecast_results.csv"
 
-# -----------------------------
-# Load data (with visible errors)
-# -----------------------------
+# --------------------------------------------------
+# Load data with visible error handling
+# --------------------------------------------------
 @st.cache_data
 def load_data(path):
     return pd.read_csv(path)
@@ -30,7 +31,7 @@ try:
     data = load_data(DATA_PATH)
     st.success("✅ Data loaded successfully")
 except Exception as e:
-    st.error("❌ Failed to load data")
+    st.error("❌ Failed to load main dataset")
     st.exception(e)
     st.stop()
 
@@ -38,18 +39,18 @@ except Exception as e:
 obs = data[data["record_type"] == "observation"].copy()
 obs["year"] = pd.to_datetime(obs["observation_date"]).dt.year
 
-# -----------------------------
+# --------------------------------------------------
 # Sidebar navigation
-# -----------------------------
+# --------------------------------------------------
 st.sidebar.header("Navigation")
 page = st.sidebar.selectbox(
     "Select Page",
-    ["Overview", "Trends", "Forecasts"]
+    ["Overview", "Trends", "Forecasts", "Inclusion Projections"]
 )
 
-# ======================================================
+# ==================================================
 # OVERVIEW PAGE
-# ======================================================
+# ==================================================
 if page == "Overview":
     st.header("📌 Overview")
 
@@ -81,13 +82,14 @@ if page == "Overview":
         """
         **Insight:**  
         Mobile money adoption has grown faster than formal account ownership,
-        highlighting a divergence between Access and Usage.
+        highlighting a divergence between **Access** and **Usage** in Ethiopia’s
+        digital financial ecosystem.
         """
     )
 
-# ======================================================
+# ==================================================
 # TRENDS PAGE
-# ======================================================
+# ==================================================
 elif page == "Trends":
     st.header("📈 Trends")
 
@@ -114,23 +116,20 @@ elif page == "Trends":
         file_name="trend_data.csv"
     )
 
-# ======================================================
+# ==================================================
 # FORECASTS PAGE
-# ======================================================
+# ==================================================
 elif page == "Forecasts":
     st.header("🔮 Forecasts & Scenarios")
-
-    FORECAST_PATH = BASE_DIR / "data" / "processed" / "forecast_results.csv"
 
     try:
         forecast_df = pd.read_csv(FORECAST_PATH)
         st.success("✅ Forecast data loaded")
     except Exception as e:
-        st.error("❌ Forecast file not found")
+        st.error("❌ Forecast data not found")
         st.exception(e)
         st.stop()
 
-    # Scenario selector
     scenario = st.radio(
         "Select Scenario",
         forecast_df["scenario"].unique(),
@@ -139,7 +138,6 @@ elif page == "Forecasts":
 
     f = forecast_df[forecast_df["scenario"] == scenario]
 
-    # Usage forecast
     fig_usage = px.line(
         f,
         x="year",
@@ -150,7 +148,6 @@ elif page == "Forecasts":
 
     st.plotly_chart(fig_usage, use_container_width=True)
 
-    # Access forecast
     fig_access = px.line(
         f,
         x="year",
@@ -164,9 +161,9 @@ elif page == "Forecasts":
     st.markdown(
         """
         **Interpretation:**  
-        Forecasts are scenario-based due to limited historical survey data.
-        Usage grows faster than access under all scenarios, reflecting
-        Ethiopia’s mobile-money–driven digital finance expansion.
+        Across all scenarios, usage grows faster than access, reflecting
+        Ethiopia’s mobile-money–driven inclusion model and persistent
+        structural barriers to full account ownership.
         """
     )
 
@@ -174,4 +171,55 @@ elif page == "Forecasts":
         "Download Forecast Data",
         f.to_csv(index=False),
         file_name="forecast_data.csv"
+    )
+
+# ==================================================
+# INCLUSION PROJECTIONS PAGE
+# ==================================================
+elif page == "Inclusion Projections":
+    st.header("🎯 Inclusion Projections")
+
+    TARGET = 60  # Consortium target (%)
+
+    try:
+        forecast_df = pd.read_csv(FORECAST_PATH)
+    except Exception as e:
+        st.error("❌ Forecast data not found")
+        st.exception(e)
+        st.stop()
+
+    scenario = st.radio(
+        "Select Scenario",
+        forecast_df["scenario"].unique(),
+        horizontal=True
+    )
+
+    f = forecast_df[forecast_df["scenario"] == scenario]
+
+    fig = px.line(
+        f,
+        x="year",
+        y="access_forecast",
+        markers=True,
+        title="Projected Account Ownership vs 60% Target"
+    )
+
+    fig.add_hline(
+        y=TARGET,
+        line_dash="dash",
+        annotation_text="60% Target"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(
+        """
+        **Consortium Question:**  
+        Will Ethiopia reach 60% account ownership by 2027?
+
+        **Answer:**  
+        Under the selected scenario, Ethiopia does **not** reach the 60% target
+        by 2027, highlighting the need for stronger policy, infrastructure,
+        and inclusion-focused interventions.
+        """
     )
